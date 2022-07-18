@@ -23,7 +23,7 @@ app.post('/testing1',(req,res)=>{
         if(err)
         console.log(err);
         else{
-            res.send('<h1>Added value to DB!!!');
+            res.send('<h1>Added value to DB!!!</h1>');
         }
     })
 });
