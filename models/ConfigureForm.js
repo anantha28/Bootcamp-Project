@@ -1,7 +1,7 @@
 var mongoose=require("mongoose");
 
 var ConfigureFormSchema=new mongoose.Schema({
-    productname: String,
+    productName: String,
     productId:String,
     forms: [{
         event: String,
@@ -15,7 +15,7 @@ var ConfigureFormSchema=new mongoose.Schema({
             }]
         }],
     cadence: Number,
-    access_code: Number
+    accessCode: Number
     }],
 });
 

@@ -5,9 +5,7 @@ var FeedbackFormSchema=new mongoose.Schema({
     productId: String,
     productName: String,
     eventName: String,
-    response: [{
-        answers: [String]
-    }],
+    response: [String],
     dateOfPopup: Date,
     isFormSubmitted: Boolean
     
