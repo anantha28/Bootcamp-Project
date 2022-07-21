@@ -11,7 +11,7 @@ var ConfigureFormSchema=new mongoose.Schema({
             isMandatory: Boolean,
             options: [{
                 optionText: String,
-                requires: false,
+                required: false,
             }]
         }],
     cadence: Number,

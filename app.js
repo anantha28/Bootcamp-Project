@@ -9,6 +9,9 @@ var flash=require("connect-flash");
 var bodyParser=require("body-parser");
 var ConfigureForm = require('./models/ConfigureForm')
 var FeedbackForm = require('./models/FeedbackForm');
+var methodOverride=require("method-override");
+
+
 const Admin = require('./models/Admin');
 
 
@@ -22,6 +25,7 @@ mongoose.connect("mongodb+srv://bootcamp_project:ncgproject37825@cluster2.j1yxp.
 
 app.use(flash());
 app.use(bodyParser.urlencoded({extended:true}));
+app.use(methodOverride("_method"));
 
 app.use(require("express-session")({
     secret:"Bootcamp_Project",
@@ -103,15 +107,16 @@ app.post('/configureForm', async (req,res)=>{
     var event='buy';
     var cadence=30;
     var access_code=123;
-    var form={event:event,questions:[], cadence:cadence,accessCode:access_code}
-    var config={productName:productName,forms:form}
-    var product_id="";
+    var form={event:event,questions:[], cadence:cadence,accessCode:access_code};
+    var product_id=productName+"_"+event+""+Math.floor(Math.random() * 100).toString();
+    var config={productName:productName,forms:form,productId:product_id};
+    
 
     await ConfigureForm.create(config,(err,formReturned)=>{
         if(err)
         console.log(err);
         else{
-            product_id=productName+"_"+event+""+Math.floor(Math.random() * 100).toString();
+            //product_id=productName+"_"+event+""+Math.floor(Math.random() * 100).toString();
             console.log(product_id);
             Admin.findOne({username:admin},(err,admin)=>{
                 if(err)
@@ -126,11 +131,13 @@ app.post('/configureForm', async (req,res)=>{
                     }
                     console.log(productIds);
 
-                    Admin.updateOne({ _id : admin._id },
-                        { $set : { product_id: productIds } },
-                        function( err, result ) {
-                            if ( err ) throw err;
-                        });
+                    admin.save();
+
+                    // Admin.updateOne({ _id : admin._id },
+                    //     { $set : { product_id: productIds } },
+                    //     function( err, result ) {
+                    //         if ( err ) throw err;
+                    //     });
                 }
             })
         }
@@ -184,6 +191,41 @@ app.get("/deriveFormMetrics", (req, res) => {
      // To do
      // Derive metrics using isFormSubmitted
 
+})
+
+app.get("/adminForms", (req, res) => {
+    var admin=req.user.username;
+    var allForms = []
+    Admin.findOne({username:admin},(err,adminRes)=>{
+        if(err) console.log(err);
+        else{
+            //console.log(adminRes)
+            var prod_id_arr=adminRes.product_id;
+            console.log("------",adminRes.product_id);
+            console.log("new arr",prod_id_arr);
+            for(var i=0;i<prod_id_arr.length;i++){
+
+                console.log(adminRes.product_id[i])
+                var temp_prod_id=adminRes.product_id[i]
+                if(adminRes.product_id[i]){
+
+                    ConfigureForm.findOne({productId:temp_prod_id},(err,formsRes)=>{
+                        if(err) console.log(err);
+                        else{
+                            console.log(temp_prod_id);//pass this also to front-end
+                            
+                            if (formsRes.forms != null) {
+                            allForms.concat(formsRes.forms);//pass to frontend
+                            }
+                        }
+                    })
+                }
+                
+            }
+        }
+    })
+
+    console.log(allForms);
 })
 
 
