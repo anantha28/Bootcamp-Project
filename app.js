@@ -107,9 +107,8 @@ app.post('/configureForm', async (req,res)=>{
     var event='buy';
     var cadence=30;
     var access_code=123;
-    var form={event:event,questions:[], cadence:cadence,accessCode:access_code};
     var product_id=productName+"_"+event+""+Math.floor(Math.random() * 100).toString();
-    var config={productName:productName,forms:form,productId:product_id};
+    var config={productName:productName,event:event,questions:[], cadence:cadence,accessCode:access_code,productId:product_id};
     
 
     await ConfigureForm.create(config,(err,formReturned)=>{
@@ -214,20 +213,20 @@ app.get("/adminForms", (req, res) => {
                         else{
                             console.log(temp_prod_id);//pass this also to front-end
                             
-                            if (formsRes.forms != null) {
-                            allForms.concat(formsRes.forms);//pass to frontend
+                            if (formsRes != null) {
+                            allForms.push(formsRes);//pass to frontend
                             }
+                            console.log(allForms);
                         }
-                    })
+                    });
                 }
                 
             }
         }
-    })
+    });
+});
 
-    console.log(allForms);
-})
-
+app.get("")
 
 var server = app.listen(8080, function () {
     var host = server.address().address
