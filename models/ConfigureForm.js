@@ -2,7 +2,7 @@ var mongoose=require("mongoose");
 
 var ConfigureFormSchema=new mongoose.Schema({
     productName: String,
-    productId:String,
+    username: String,
     event: String,
     questions: [{
         type: String,
@@ -15,6 +15,7 @@ var ConfigureFormSchema=new mongoose.Schema({
     }],
     cadence: Number,
     accessCode: Number
-});
+}, 
+{ typeKey: '$type' });
 
 module.exports=mongoose.model("ConfigureForm",ConfigureFormSchema);
