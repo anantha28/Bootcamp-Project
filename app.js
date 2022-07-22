@@ -10,6 +10,7 @@ var bodyParser=require("body-parser");
 var ConfigureForm = require('./models/ConfigureForm')
 var FeedbackForm = require('./models/FeedbackForm');
 var methodOverride=require("method-override");
+var cors = require('cors');
 
 
 const Admin = require('./models/Admin');
@@ -23,6 +24,7 @@ app.set('view engine', 'ejs');
 
 mongoose.connect("mongodb+srv://bootcamp_project:ncgproject37825@cluster2.j1yxp.mongodb.net/?retryWrites=true&w=majority",{useNewUrlParser: true});
 
+app.use(express.json())
 app.use(flash());
 app.use(bodyParser.urlencoded({extended:true}));
 app.use(methodOverride("_method"));
@@ -33,6 +35,7 @@ app.use(require("express-session")({
     saveUninitialized:false
 }));
 
+app.use(cors());
 app.use(passport.initialize());
 app.use(passport.session());
 passport.use(new localStrategy(User.authenticate()));
@@ -62,22 +65,37 @@ app.get("/logout",function(req,res){
 });
 
 // Sign up a new admin
-app.post("/register",function(req,res)
+app.post("/register",async function(req,res)
 {   
-    console.log(req.body);
-    var newUser=new User({username:req.body.username});
-    User.register(newUser,req.body.password,function(err,users)
+    console.log("body",req.body);
+    // var newUser=new User({username:req.body.username});
+    // User.register(newUser,req.body.password,function(err,users)
+    // {
+    //     if(err){
+    //     console.log(err);
+    //     }
+    //     else
+    //     {
+    //         passport.authenticate("local")(req,res,function(){
+    //         res.send("Authenticated!")
+    //    });
+    //     }
+    // });
+    try
     {
-        if(err){
-        console.log(err);
-        }
-        else
+        const userExists=await User.findOne({username:req.body.username});
+        if(userExists)
         {
-            passport.authenticate("local")(req,res,function(){
-            res.send("Authenticated!")
-       });
+            return res.status(422).json({error:"User Exists"});
         }
-    });
+        const user=new User(req.body);
+        await user.save();
+        res.status(201).json({message:"Registratioin Successful"});
+    }
+    catch(err)
+    {
+        console.log(err);
+    }
 });
 
 
@@ -89,10 +107,10 @@ app.get('/testing1',(req,res)=>{
 
 //Specific to an Admin
 app.get('/allUserReviews', (req, res) => {
-    var prod_id=req.user.product_id;
+    var formIds=req.user.formIds;
     var responses=[]
-    for(var i=0;i<prod_id.length;i++){
-        FeedbackForm.find({product_id:prod_id[i]},(err,feedback)=>{
+    for(var i=0; i < formIds.length; i++){
+        FeedbackForm.find({formIds: formIds[i]},(err,feedback)=>{
             responses.push(responses,feedback);
         })
     }
@@ -107,8 +125,8 @@ app.post('/configureForm', async (req,res)=>{
     var event='buy';
     var cadence=30;
     var access_code=123;
-    var product_id=productName+"_"+event+""+Math.floor(Math.random() * 100).toString();
-    var config={productName:productName,event:event,questions:[], cadence:cadence,accessCode:access_code,productId:product_id};
+    //var product_id=productName+"_"+event+""+Math.floor(Math.random() * 100).toString();
+    var config={productName:productName,event:event,questions:[], cadence:cadence,accessCode:access_code};
     
 
     await ConfigureForm.create(config,(err,formReturned)=>{
@@ -116,19 +134,19 @@ app.post('/configureForm', async (req,res)=>{
         console.log(err);
         else{
             //product_id=productName+"_"+event+""+Math.floor(Math.random() * 100).toString();
-            console.log(product_id);
+            //console.log(product_id);
             Admin.findOne({username:admin},(err,admin)=>{
                 if(err)
                 console.log(err);
                 else{
                     console.log(admin);
-                    var productIds = admin.product_id
-                    if (productIds == null) {
-                        productIds = [product_id]
+                    var form_Ids = admin.formIds;
+                    if (form_Ids == null) {
+                        form_Ids = [formReturned._id]
                     }else {
-                        productIds.push(product_id)
+                        form_Ids.push(formReturned._id)
                     }
-                    console.log(productIds);
+                    console.log(form_Ids);
 
                     admin.save();
 
@@ -151,11 +169,11 @@ app.post('/storeUserResponse', (req, res) => {
     var response = ["aaaa","bbbb"];
     var dateOfPopup = Date.now();
     var isFormSubmitted = true;
-    var product_id="salesforce_buy21"
+    var form_id="62d96133caa4e0b1437c85cc"
 
     var formData = new FeedbackForm({
         userId,
-        productId: product_id,
+        formId: form_id,
         productName,
         eventName,
         response,
@@ -169,15 +187,15 @@ app.post('/storeUserResponse', (req, res) => {
 
 //List all responses specific to a product & event
 app.get("/listAllResponses",(req,res)=>{
-    var product_id="salesforce_buy21";
+    var form_id = "62d96133caa4e0b1437c85cc";
 
-    FeedbackForm.find({productId:product_id},(err,allFeedbacks)=>{
+    FeedbackForm.find({formId: form_id},(err,allFeedbacks)=>{
         if(err) console.log(err);
         else{
             var allResponse=[]
             console.log("-----------------------------")
             for(var i=0;i<allFeedbacks.length;i++){
-                console.log(allFeedbacks[i].response)
+                //console.log(allFeedbacks[i].response)
                 allResponse.push(allFeedbacks[i].response);
             }
             console.log(allResponse);
@@ -186,7 +204,7 @@ app.get("/listAllResponses",(req,res)=>{
 })
 
 app.get("/deriveFormMetrics", (req, res) => {
-    var product_id = "salesforce_buy21";
+    var form_id = "salesforce_buy21";
      // To do
      // Derive metrics using isFormSubmitted
 
@@ -199,19 +217,19 @@ app.get("/adminForms", (req, res) => {
         if(err) console.log(err);
         else{
             //console.log(adminRes)
-            var prod_id_arr=adminRes.product_id;
-            console.log("------",adminRes.product_id);
-            console.log("new arr",prod_id_arr);
-            for(var i=0;i<prod_id_arr.length;i++){
+            var formIdsArr = adminRes.formIds;
+            console.log("------", adminRes.formIds);
+            console.log("new arr",formIdsArr);
+            for(var i=0;i<formIdsArr.length;i++){
 
-                console.log(adminRes.product_id[i])
-                var temp_prod_id=adminRes.product_id[i]
-                if(adminRes.product_id[i]){
+                console.log(adminRes.formIds[i]);
+                var temp_form_id=adminRes.formIds[i];
+                if(adminRes.formIds[i]){
 
-                    ConfigureForm.findOne({productId:temp_prod_id},(err,formsRes)=>{
+                    ConfigureForm.findOne({productId:temp_form_id},(err,formsRes)=>{
                         if(err) console.log(err);
                         else{
-                            console.log(temp_prod_id);//pass this also to front-end
+                            console.log(temp_form_id);//pass this also to front-end
                             
                             if (formsRes != null) {
                             allForms.push(formsRes);//pass to frontend
