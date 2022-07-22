@@ -2,7 +2,6 @@ var mongoose=require("mongoose");
 
 var ConfigureFormSchema=new mongoose.Schema({
     productName: String,
-    productId:String,
     event: String,
     questions: [{
         type: String,

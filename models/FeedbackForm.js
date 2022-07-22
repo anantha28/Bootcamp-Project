@@ -2,7 +2,7 @@ var mongoose=require("mongoose");
 
 var FeedbackFormSchema=new mongoose.Schema({
     userId: String,
-    productId: String,
+    formId: String,
     productName: String,
     eventName: String,
     response: [String],
