@@ -10,6 +10,7 @@ var bodyParser=require("body-parser");
 var ConfigureForm = require('./models/ConfigureForm')
 var FeedbackForm = require('./models/FeedbackForm');
 var methodOverride=require("method-override");
+var cors = require('cors');
 
 
 const Admin = require('./models/Admin');
@@ -23,6 +24,7 @@ app.set('view engine', 'ejs');
 
 mongoose.connect("mongodb+srv://bootcamp_project:ncgproject37825@cluster2.j1yxp.mongodb.net/?retryWrites=true&w=majority",{useNewUrlParser: true});
 
+app.use(express.json())
 app.use(flash());
 app.use(bodyParser.urlencoded({extended:true}));
 app.use(methodOverride("_method"));
@@ -33,6 +35,7 @@ app.use(require("express-session")({
     saveUninitialized:false
 }));
 
+app.use(cors());
 app.use(passport.initialize());
 app.use(passport.session());
 passport.use(new localStrategy(User.authenticate()));
@@ -62,22 +65,37 @@ app.get("/logout",function(req,res){
 });
 
 // Sign up a new admin
-app.post("/register",function(req,res)
+app.post("/register",async function(req,res)
 {   
-    console.log(req.body);
-    var newUser=new User({username:req.body.username});
-    User.register(newUser,req.body.password,function(err,users)
+    console.log("body",req.body);
+    // var newUser=new User({username:req.body.username});
+    // User.register(newUser,req.body.password,function(err,users)
+    // {
+    //     if(err){
+    //     console.log(err);
+    //     }
+    //     else
+    //     {
+    //         passport.authenticate("local")(req,res,function(){
+    //         res.send("Authenticated!")
+    //    });
+    //     }
+    // });
+    try
     {
-        if(err){
-        console.log(err);
-        }
-        else
+        const userExists=await User.findOne({username:req.body.username});
+        if(userExists)
         {
-            passport.authenticate("local")(req,res,function(){
-            res.send("Authenticated!")
-       });
+            return res.status(422).json({error:"User Exists"});
         }
-    });
+        const user=new User(req.body);
+        await user.save();
+        res.status(201).json({message:"Registratioin Successful"});
+    }
+    catch(err)
+    {
+        console.log(err);
+    }
 });
 
 
