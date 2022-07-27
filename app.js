@@ -52,27 +52,48 @@ app.get('/',(req,res)=>{ //for dashboard
 
 // Login for an admin
 app.post("/login",(req,res)=>{
-    //console.log(req.body)
+    console.log("request body login: ", req.body)
     User.findOne({username:req.body.username},(err,user)=>{
-        if(err) console.log(err);
+        if(err){
+            console.log("=======DB error=======");
+            res.status(401).send({
+                message: 'Database error'
+             });
+        } 
         else{
-            if(user.password==req.body.password){
-                console.log('inside if block');
-            tempUser.create({username:req.body.username},(err,tempUser1)=>{
-                if(err)
-                console.log(err);
-                else{ 
-                console.log('inside temp user');
-                console.log(tempUser1.username);
-                res.send(user.username);
+            console.log("User from db:",user);
+            if (user!=null) {
+                if(user.password==req.body.password){
+                    console.log('inside if block');
+                    tempUser.remove({},(err,tempUserDeleted)=>{
+                        if(err) console.log(err);
+                        else{
+                            console.log(tempUserDeleted);
+                            tempUser.create({username:req.body.username},(err,tempUser1)=>{
+                                if(err)
+                                console.log(err);
+                                else{ 
+                                console.log('inside temp user');
+                                console.log(tempUser1.username);
+                                res.send(user.username);
+                            }
+                        });
+                        }
+                       })
+                    
                 }
-            });
+                else{
+                    console.log("password incorrect");
+                    res.status(401).send({
+                        message: 'password incorrect'
+                     });
+                }
             }
-            else{
-                res.status(401).send({
-                    message: 'error'
-                 });
+            else {
+                console.log("User does not exist");
+                res.status(400).send({ error: "User does not exist"});
             }
+            
         }
     })
 });
@@ -271,13 +292,13 @@ app.post("/adminForms", (req, res) => {
         if(err) console.log(err);
         else{
             admin = tempUser[0].username;
-            console.log("Inside tempUser",admin);
+           // console.log("Inside tempUser",admin);
             var allForms = [];
             ConfigureForm.find({username:admin},(err,formsRes)=>{
             if(err) console.log(err);
             else{
                 allForms = formsRes;
-                console.log("--------all forms",allForms);
+                //console.log("--------all forms",allForms);
                 res.send(allForms);
             }
     });
@@ -318,6 +339,39 @@ app.get("/tempUser",(req,res)=>{
         }
     })
 })
+
+app.post("/getUserForm/:formId",(req,res)=>{
+    var formId=req.params.formId;
+    var username=req.body.username;
+    res.send("http://localhost:8080/getallform/"+username);
+})
+
+
+app.post("/getScriptTag",(req,res)=>{
+    //var username=req.body.username;
+   var formId = req.body.id.id;
+   // var formId = 
+   console.log(formId);
+
+   res.send(`<!--Change the data string value to current User who has logged in-->
+   <script>
+   $(document).ready(function()
+   {
+       var dataString="anantha"
+              $.ajax({
+           type: "POST",
+           url: "http://localhost:8080/getUserForm/${formId}",
+           cache: false,
+           data: {username:dataString},
+
+           success: function(response){
+           console.log(response);<!-- http://localhost:8080/getallform/username/formid-->
+           window.location.href=response;
+           }
+       });
+   });
+</script>`)
+});
 
 
 
