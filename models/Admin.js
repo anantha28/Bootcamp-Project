@@ -3,8 +3,7 @@ var passportLocalMongoose=require("passport-local-mongoose");
 
 var AdminSchema=new mongoose.Schema({
     username:String,
-    password:String,
-    formIds: [String]
+    password:String
 });
 
 AdminSchema.plugin(passportLocalMongoose);

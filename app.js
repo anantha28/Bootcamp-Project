@@ -14,6 +14,7 @@ var cors = require('cors');
 
 
 const Admin = require('./models/Admin');
+const tempUser=require('./models/tempUser');
 
 
 // const async = require('async');
@@ -50,18 +51,41 @@ app.get('/',(req,res)=>{ //for dashboard
 });
 
 // Login for an admin
-app.post("/login",passport.authenticate("local",
-{
-  successRedirect:"/",
-  failureRedirect:"/",
-  failureFlash:true
-}),function(req, res) {
+app.post("/login",(req,res)=>{
+    //console.log(req.body)
+    User.findOne({username:req.body.username},(err,user)=>{
+        if(err) console.log(err);
+        else{
+            if(user.password==req.body.password){
+                console.log('inside if block');
+            tempUser.create({username:req.body.username},(err,tempUser1)=>{
+                if(err)
+                console.log(err);
+                else{ 
+                console.log('inside temp user');
+                console.log(tempUser1.username);
+                res.send(user.username);
+                }
+            });
+            }
+            else{
+                res.status(401).send({
+                    message: 'error'
+                 });
+            }
+        }
+    })
 });
 
 // Admin Logout
 app.get("/logout",function(req,res){
-   req.logout();
-   res.redirect("/login");
+   tempUser.remove({},(err,tempUserDeleted)=>{
+    if(err) console.log(err);
+    else{
+        console.log(tempUserDeleted);
+        res.send("");
+    }
+   })
 });
 
 // Sign up a new admin
@@ -90,7 +114,7 @@ app.post("/register",async function(req,res)
         }
         const user=new User(req.body);
         await user.save();
-        res.status(201).json({message:"Registratioin Successful"});
+        res.status(201).json({message:"Registration Successful"});
     }
     catch(err)
     {
@@ -120,45 +144,75 @@ app.get('/allUserReviews', (req, res) => {
 
 // Create and store form configuration in db
 app.post('/configureForm', async (req,res)=>{
-    var admin=req.user.username;
-    var productName='salesforce';
-    var event='buy';
-    var cadence=30;
+    var admin;
+
+    tempUser.find({},(err,tempUser)=>{
+        if(err) console.log(err);
+        else{
+            admin = tempUser[0].username;
+            console.log("cofig1",req.body);
+    
+    var {productName, event}= req.body.eventDetailsAr[0];
+    var cadence=req.body.cadence;
     var access_code=123;
+    var isMandatory=false;
     //var product_id=productName+"_"+event+""+Math.floor(Math.random() * 100).toString();
-    var config={productName:productName,event:event,questions:[], cadence:cadence,accessCode:access_code};
+
+    var questions = [];
+    if (req.body.inputElements) {
+        (req.body.inputElements).forEach(question => {
+            //console.log(question);
+            questions.push({type: question.type, questionText: question.label})
+        });
+    }
+    
+    
+    var config = {
+        productName,
+        username: admin,
+        event,
+        questions,
+        cadence,
+    };
+
+    console.log("config: ", config)
     
 
-    await ConfigureForm.create(config,(err,formReturned)=>{
+    ConfigureForm.create(config,(err,formReturned)=>{
         if(err)
         console.log(err);
         else{
+            console.log('---------Form returned',formReturned);
+            res.status(200).json({message:"Login Sucessful"});
+           // res.send(formReturned._id);
             //product_id=productName+"_"+event+""+Math.floor(Math.random() * 100).toString();
             //console.log(product_id);
-            Admin.findOne({username:admin},(err,admin)=>{
-                if(err)
-                console.log(err);
-                else{
-                    console.log(admin);
-                    var form_Ids = admin.formIds;
-                    if (form_Ids == null) {
-                        form_Ids = [formReturned._id]
-                    }else {
-                        form_Ids.push(formReturned._id)
-                    }
-                    console.log(form_Ids);
+            // Admin.findOne({username: admin},(err,admin)=>{
+            //     if(err)
+            //     console.log(err);
+            //     else{
+            //         // console.log(admin);
+            //         // var form_Ids = admin.formIds;
+            //         // if (form_Ids == null) {
+            //         //     form_Ids = [formReturned._id]
+            //         // }else {
+            //         //     form_Ids.push(formReturned._id)
+            //         // }
+            //         // console.log(form_Ids);
 
-                    admin.save();
+            //         admin.save();
 
-                    // Admin.updateOne({ _id : admin._id },
-                    //     { $set : { product_id: productIds } },
-                    //     function( err, result ) {
-                    //         if ( err ) throw err;
-                    //     });
-                }
-            })
+            //         // Admin.updateOne({ _id : admin._id },
+            //         //     { $set : { product_id: productIds } },
+            //         //     function( err, result ) {
+            //         //         if ( err ) throw err;
+            //         //     });
+            //     }
+            // })
         }
     });
+        }
+    })
 });
 
 // Store feedback form data submitted by a user
@@ -187,13 +241,13 @@ app.post('/storeUserResponse', (req, res) => {
 
 //List all responses specific to a product & event
 app.get("/listAllResponses",(req,res)=>{
-    var form_id = "62d96133caa4e0b1437c85cc";
+    var formId = req.body.formId;
 
-    FeedbackForm.find({formId: form_id},(err,allFeedbacks)=>{
+    FeedbackForm.find({formId: formId},(err,allFeedbacks)=>{
         if(err) console.log(err);
         else{
             var allResponse=[]
-            console.log("-----------------------------")
+            console.log("-------------User Responses----------------")
             for(var i=0;i<allFeedbacks.length;i++){
                 //console.log(allFeedbacks[i].response)
                 allResponse.push(allFeedbacks[i].response);
@@ -210,46 +264,65 @@ app.get("/deriveFormMetrics", (req, res) => {
 
 })
 
-app.get("/adminForms", (req, res) => {
-    var admin=req.user.username;
-    var allForms = []
-    Admin.findOne({username:admin},(err,adminRes)=>{
+app.post("/adminForms", (req, res) => {
+    var admin;
+
+    tempUser.find({},(err,tempUser)=>{
         if(err) console.log(err);
         else{
-            //console.log(adminRes)
-            var formIdsArr = adminRes.formIds;
-            console.log("------", adminRes.formIds);
-            console.log("new arr",formIdsArr);
-            for(var i=0;i<formIdsArr.length;i++){
-
-                console.log(adminRes.formIds[i]);
-                var temp_form_id=adminRes.formIds[i];
-                if(adminRes.formIds[i]){
-
-                    ConfigureForm.findOne({productId:temp_form_id},(err,formsRes)=>{
-                        if(err) console.log(err);
-                        else{
-                            console.log(temp_form_id);//pass this also to front-end
-                            
-                            if (formsRes != null) {
-                            allForms.push(formsRes);//pass to frontend
-                            }
-                            console.log(allForms);
-                        }
-                    });
-                }
-                
+            admin = tempUser[0].username;
+            console.log("Inside tempUser",admin);
+            var allForms = [];
+            ConfigureForm.find({username:admin},(err,formsRes)=>{
+            if(err) console.log(err);
+            else{
+                allForms = formsRes;
+                console.log("--------all forms",allForms);
+                res.send(allForms);
             }
+    });
         }
     });
 });
 
-app.get("")
+// app.get("/getForm/:username",(req,res)=>{
+    // tempUser.find({},(err,tempUser)=>{
+    //     if(err) console.log(err);
+    //     else{
+    //         admin = tempUser[0].username;
+    //     }
+    // });
+// })
+
+app.post("/getForm", (req, res) => {
+    //var username;
+    
+   var formId = req.body.id.id;
+   // var formId = 
+   console.log(formId)
+
+    ConfigureForm.findOne({_id: formId}, (err, form) => {
+        if (err) console.log(err)
+        else {
+            console.log(form)
+            res.send(form)
+        }
+    })
+})
+
+app.get("/tempUser",(req,res)=>{
+    tempUser.find({},(err,tempUser)=>{
+        if(err) console.log(err);
+        else{
+            res.send(tempUser[0].username);
+        }
+    })
+})
+
+
 
 var server = app.listen(8080, function () {
     var host = server.address().address
     var port = server.address().port
     console.log("App started", host, port)
  })
-
-
