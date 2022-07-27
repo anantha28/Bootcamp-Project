@@ -9,32 +9,40 @@
 
     
     <script>
-        // $( document ).ready(function() {
-        // alert('ready');
-        // });
-
         $(document).ready(function()
-        {
+        {   
             var dataString="anantha";
-            console.log('aaaa');
             $.ajax({
-                type: "POST",
-                url: "http://localhost:8080/testing2",
-                cache: false,
-                data: {username:dataString},
-    
-                success: function(response){
-                //$("#more").after(html);
-                console.log(response);
-                window.location.href=response;
-                }
-            });
-        });
+           type: "POST",
+           url: "http://localhost:8080/getUserForm/62e1151857c9d69a7338ae17/time",
+           cache: false,
+           data: {username:dataString},
+           success: function(response){
+           console.log(response);
+           if(response=="pass"){
+            var url=window.location.href;
+            var dataString="anantha"
+              $.ajax({
+           type: "POST",
+           url: "http://localhost:8080/getUserForm/62e1151857c9d69a7338ae17",
+           cache: false,
+           data: {username:dataString,url:url},
+           success: function(response){
+           console.log(response);
+           window.location.href=response;
+           }
+       });
+           }
+           }
+       }); 
+   });
     </script>
 
 </head>
 <body>
     <h1>loaded</h1>
+
+    
 
     
 
