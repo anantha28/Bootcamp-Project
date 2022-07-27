@@ -10,9 +10,11 @@ var bodyParser=require("body-parser");
 var ConfigureForm = require('./models/ConfigureForm')
 var FeedbackForm = require('./models/FeedbackForm');
 var methodOverride=require("method-override");
+var cors = require('cors');
 
 
 const Admin = require('./models/Admin');
+const tempUser=require('./models/tempUser');
 
 
 // const async = require('async');
@@ -23,6 +25,7 @@ app.set('view engine', 'ejs');
 
 mongoose.connect("mongodb+srv://bootcamp_project:ncgproject37825@cluster2.j1yxp.mongodb.net/?retryWrites=true&w=majority",{useNewUrlParser: true});
 
+app.use(express.json())
 app.use(flash());
 app.use(bodyParser.urlencoded({extended:true}));
 app.use(methodOverride("_method"));
@@ -33,6 +36,7 @@ app.use(require("express-session")({
     saveUninitialized:false
 }));
 
+app.use(cors());
 app.use(passport.initialize());
 app.use(passport.session());
 passport.use(new localStrategy(User.authenticate()));
@@ -47,37 +51,75 @@ app.get('/',(req,res)=>{ //for dashboard
 });
 
 // Login for an admin
-app.post("/login",passport.authenticate("local",
-{
-  successRedirect:"/",
-  failureRedirect:"/",
-  failureFlash:true
-}),function(req, res) {
+app.post("/login",(req,res)=>{
+    //console.log(req.body)
+    User.findOne({username:req.body.username},(err,user)=>{
+        if(err) console.log(err);
+        else{
+            if(user.password==req.body.password){
+                console.log('inside if block');
+            tempUser.create({username:req.body.username},(err,tempUser1)=>{
+                if(err)
+                console.log(err);
+                else{ 
+                console.log('inside temp user');
+                console.log(tempUser1.username);
+                res.send(user.username);
+                }
+            });
+            }
+            else{
+                res.status(401).send({
+                    message: 'error'
+                 });
+            }
+        }
+    })
 });
 
 // Admin Logout
 app.get("/logout",function(req,res){
-   req.logout();
-   res.redirect("/login");
+   tempUser.remove({},(err,tempUserDeleted)=>{
+    if(err) console.log(err);
+    else{
+        console.log(tempUserDeleted);
+        res.send("");
+    }
+   })
 });
 
 // Sign up a new admin
-app.post("/register",function(req,res)
+app.post("/register",async function(req,res)
 {   
-    console.log(req.body);
-    var newUser=new User({username:req.body.username});
-    User.register(newUser,req.body.password,function(err,users)
+    console.log("body",req.body);
+    // var newUser=new User({username:req.body.username});
+    // User.register(newUser,req.body.password,function(err,users)
+    // {
+    //     if(err){
+    //     console.log(err);
+    //     }
+    //     else
+    //     {
+    //         passport.authenticate("local")(req,res,function(){
+    //         res.send("Authenticated!")
+    //    });
+    //     }
+    // });
+    try
     {
-        if(err){
-        console.log(err);
-        }
-        else
+        const userExists=await User.findOne({username:req.body.username});
+        if(userExists)
         {
-            passport.authenticate("local")(req,res,function(){
-            res.send("Authenticated!")
-       });
+            return res.status(422).json({error:"User Exists"});
         }
-    });
+        const user=new User(req.body);
+        await user.save();
+        res.status(201).json({message:"Registration Successful"});
+    }
+    catch(err)
+    {
+        console.log(err);
+    }
 });
 
 
@@ -102,43 +144,64 @@ app.get('/allUserReviews', (req, res) => {
 
 // Create and store form configuration in db
 app.post('/configureForm', async (req,res)=>{
-    var admin=req.user.username;
-    var productName='salesforce';
-    var event='buy';
+    console.log("cofig1",req.body);
+    var admin = req.body.username;
+    var {productName, event}= req.body.eventDetailsAr[0];
     var cadence=30;
     var access_code=123;
+    var isMandatory=false;
     //var product_id=productName+"_"+event+""+Math.floor(Math.random() * 100).toString();
-    var config={productName:productName,event:event,questions:[], cadence:cadence,accessCode:access_code};
+
+    var questions = [];
+    if (req.body.inputElements) {
+        (req.body.inputElements).forEach(question => {
+            //console.log(question);
+            questions.push({type: question.type, questionText: question.label})
+        });
+    }
+    
+    
+    var config = {
+        productName,
+        username: admin,
+        event,
+        questions,
+        cadence,
+    };
+
+    console.log("config: ", config)
     
 
     await ConfigureForm.create(config,(err,formReturned)=>{
         if(err)
         console.log(err);
         else{
+            console.log('---------Form returned',formReturned);
+            res.send(formReturned)
             //product_id=productName+"_"+event+""+Math.floor(Math.random() * 100).toString();
             //console.log(product_id);
-            Admin.findOne({username:admin},(err,admin)=>{
-                if(err)
-                console.log(err);
-                else{
-                    console.log(admin);
-                    var form_Ids = admin.formIds;
-                    if (form_Ids == null) {
-                        form_Ids = [formReturned._id]
-                    }else {
-                        form_Ids.push(formReturned._id)
-                    }
-                    console.log(form_Ids);
+            // Admin.findOne({username: admin},(err,admin)=>{
+            //     if(err)
+            //     console.log(err);
+            //     else{
+            //         // console.log(admin);
+            //         // var form_Ids = admin.formIds;
+            //         // if (form_Ids == null) {
+            //         //     form_Ids = [formReturned._id]
+            //         // }else {
+            //         //     form_Ids.push(formReturned._id)
+            //         // }
+            //         // console.log(form_Ids);
 
-                    admin.save();
+            //         admin.save();
 
-                    // Admin.updateOne({ _id : admin._id },
-                    //     { $set : { product_id: productIds } },
-                    //     function( err, result ) {
-                    //         if ( err ) throw err;
-                    //     });
-                }
-            })
+            //         // Admin.updateOne({ _id : admin._id },
+            //         //     { $set : { product_id: productIds } },
+            //         //     function( err, result ) {
+            //         //         if ( err ) throw err;
+            //         //     });
+            //     }
+            // })
         }
     });
 });
@@ -192,46 +255,30 @@ app.get("/deriveFormMetrics", (req, res) => {
 
 })
 
-app.get("/adminForms", (req, res) => {
-    var admin=req.user.username;
-    var allForms = []
-    Admin.findOne({username:admin},(err,adminRes)=>{
+app.post("/adminForms", (req, res) => {
+    var admin=req.body.username;
+    var allForms = [];
+    ConfigureForm.find({username:admin},(err,formsRes)=>{
         if(err) console.log(err);
         else{
-            //console.log(adminRes)
-            var formIdsArr = adminRes.formIds;
-            console.log("------", adminRes.formIds);
-            console.log("new arr",formIdsArr);
-            for(var i=0;i<formIdsArr.length;i++){
-
-                console.log(adminRes.formIds[i]);
-                var temp_form_id=adminRes.formIds[i];
-                if(adminRes.formIds[i]){
-
-                    ConfigureForm.findOne({productId:temp_form_id},(err,formsRes)=>{
-                        if(err) console.log(err);
-                        else{
-                            console.log(temp_form_id);//pass this also to front-end
-                            
-                            if (formsRes != null) {
-                            allForms.push(formsRes);//pass to frontend
-                            }
-                            console.log(allForms);
-                        }
-                    });
-                }
-                
-            }
+            allForms = formsRes;
+            console.log("--------all forms",allForms);
+            res.send(allForms);
         }
     });
-});
+})
 
-app.get("")
+app.get("/tempUser",(req,res)=>{
+    tempUser.find({},(err,tempUser)=>{
+        if(err) console.log(err);
+        else{
+            res.send(tempUser[0].username);
+        }
+    })
+})
 
 var server = app.listen(8080, function () {
     var host = server.address().address
     var port = server.address().port
     console.log("App started", host, port)
  })
-
-

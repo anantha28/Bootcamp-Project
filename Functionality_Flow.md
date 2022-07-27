@@ -65,3 +65,5 @@ Questions about the project:
 2) How to handle API collision?
 3) Functionalities of the APIs that are to be used for external use?
 ----------------------------------------------------------------------------------------------
+http://localhost:8080/_id--> POst --username
+http://localhost:8080/getallform/username
