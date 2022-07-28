@@ -15,6 +15,7 @@ var cors = require('cors');
 
 const Admin = require('./models/Admin');
 const tempUser=require('./models/tempUser');
+const e = require('connect-flash');
 
 
 // const async = require('async');
@@ -147,7 +148,7 @@ app.post("/register",async function(req,res)
 app.get('/testing1',(req,res)=>{
     console.log('in11')
     console.log(req.user);
-    res.send('<h1>Logged in!!!</h1>');
+    res.render("testing1.ejs");
 });
 
 //Specific to an Admin
@@ -204,7 +205,7 @@ app.post('/configureForm', async (req,res)=>{
         console.log(err);
         else{
             console.log('---------Form returned',formReturned);
-            res.status(200).json({message:"Login Sucessful"});
+            res.status(200).json({message:"Form Configured", id: formReturned._id});
            // res.send(formReturned._id);
             //product_id=productName+"_"+event+""+Math.floor(Math.random() * 100).toString();
             //console.log(product_id);
@@ -238,13 +239,18 @@ app.post('/configureForm', async (req,res)=>{
 
 // Store feedback form data submitted by a user
 app.post('/storeUserResponse', (req, res) => {
-    var userId = "123";
-    var productName = "salesforce";
-    var eventName = "buy";
-    var response = ["aaaa","bbbb"];
-    var dateOfPopup = Date.now();
+    var userId = req.body.username;
+    var productName = req.body.productName;
+    var eventName = req.body.productName;
+    var response = [];
+    const d = new Date();
+    var dateOfPopup = d.getTime();
     var isFormSubmitted = true;
-    var form_id="62d96133caa4e0b1437c85cc"
+    var form_id=req.body.formId;
+    var url=req.body.url; 
+
+    var response_arr=Object.values(req.body);
+    response = response_arr.slice(4);
 
     var formData = new FeedbackForm({
         userId,
@@ -255,14 +261,15 @@ app.post('/storeUserResponse', (req, res) => {
         dateOfPopup,
         isFormSubmitted
     });
-
-    formData.save()
-
+    formData.save();
+    console.log(url);
+    res.redirect(url);
+    
 });
 
 //List all responses specific to a product & event
-app.get("/listAllResponses",(req,res)=>{
-    var formId = req.body.formId;
+app.get("/listAllResponses/:formId",(req,res)=>{
+    var formId = req.params.formId;
 
     FeedbackForm.find({formId: formId},(err,allFeedbacks)=>{
         if(err) console.log(err);
@@ -274,6 +281,8 @@ app.get("/listAllResponses",(req,res)=>{
                 allResponse.push(allFeedbacks[i].response);
             }
             console.log(allResponse);
+            res.send(allResponse);
+            
         }
     })
 })
@@ -340,40 +349,135 @@ app.get("/tempUser",(req,res)=>{
     })
 })
 
+app.post("/storeUserResponse11",(req,res)=>{
+    console.log(req.body);
+    res.send(req.body);
+})
+
+
+app.get("/getallform/:username/:formId",(req,res)=>{
+    var formId = mongoose.Types.ObjectId(req.params.formId.trim());
+    var username=req.params.username;
+    console.log(formId,username);
+    console.log(typeof(formId));
+    ConfigureForm.findById(formId,(err,formValues)=>{
+        if(err)
+        console.log(err);
+        else{
+            //console.log(formValues);
+            res.render("form.ejs",{formValues:formValues,username:username});
+        }
+    })
+});
+
 app.post("/getUserForm/:formId",(req,res)=>{
     var formId=req.params.formId;
     var username=req.body.username;
-    res.send("http://localhost:8080/getallform/"+username);
+    var prev_url = req.body.url;
+    console.log("before");
+    ConfigureForm.findById(formId,(err,formReturned)=>{
+        if(err) console.log(err);
+        else{
+            formReturned.url=prev_url;
+            formReturned.save();
+        }
+    })
+    console.log("after");
+
+    res.send("http://localhost:8080/getallform/"+username+"/"+formId);
 })
+
+app.post("/getUserForm/:formId/time",(req,res)=>{
+    var formId=req.params.formId;
+    var username=req.body.username;
+    console.log(formId,username);
+    console.log(typeof(formId),typeof(username));
+    var prev_url = req.body.url;
+    console.log("before");
+    FeedbackForm.findOne({formId:formId,userId:username},(err,formReturned)=>{
+        if(err) console.log(err);
+        else{
+            console.log(formReturned);
+            if(formReturned == null){
+                console.log("no form found");
+                res.send("pass");
+            }
+            else{
+            console.log('inside feedback form');
+            const d = new Date();
+            console.log(d.getTime());
+            var curTime=d.getTime();
+            console.log("====formReturend time===",formReturned.dateOfPopup);
+            ConfigureForm.findById(formId,(err,configForm)=>{
+                if(err)
+                console.log(err);
+                else{
+                    console.log('inside config form')
+                    var cadence=configForm.cadence;
+                    console.log("Cadence is",cadence);
+                    console.log("Time difference",(curTime-formReturned.dateOfPopup)/1000);
+
+                    if(((curTime-formReturned.dateOfPopup)/1000)>cadence){
+                    console.log(((curTime-formReturned.dateOfPopup)/1000));
+                    formReturned,dateOfPopup=d;
+                    formReturned.save();
+                    res.send("pass");
+                    }
+                    else{
+                        console.log(((curTime-formReturned.dateOfPopup)/1000));
+                        console.log("cadence error");
+                        res.send("cadence error");
+                    }   
+                }
+            });
+
+            }
+        }
+    });
+});
 
 
 app.post("/getScriptTag",(req,res)=>{
     //var username=req.body.username;
-   var formId = req.body.id.id;
+   var formId = req.body.id;
    // var formId = 
    console.log(formId);
 
-   res.send(`<!--Change the data string value to current User who has logged in-->
+   var script = `
    <script>
    $(document).ready(function()
-   {
-       var dataString="anantha"
-              $.ajax({
-           type: "POST",
-           url: "http://localhost:8080/getUserForm/${formId}",
-           cache: false,
-           data: {username:dataString},
-
-           success: function(response){
-           console.log(response);<!-- http://localhost:8080/getallform/username/formid-->
-           window.location.href=response;
-           }
-       });
-   });
-</script>`)
+   {   
+       var dataString="anantha";
+       $.ajax({
+      type: "POST",
+      url: "http://localhost:8080/getUserForm/${formId}/time",
+      cache: false,
+      data: {username:dataString},
+      success: function(response){
+      console.log(response);
+      if(response=="pass"){
+       var url=window.location.href;
+       var dataString="anantha";
+         $.ajax({
+      type: "POST",
+      url: "http://localhost:8080/getUserForm/${formId}",
+      cache: false,
+      data: {username:dataString,url:url},
+      success: function(response){
+      console.log(response);
+      window.location.href=response;
+      }
+  });
+      }
+      }
+  }); 
 });
+</script>`
 
-
+console.log(typeof(script));
+console.log(script)
+res.send(script)
+});
 
 var server = app.listen(8080, function () {
     var host = server.address().address

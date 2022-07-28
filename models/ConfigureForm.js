@@ -14,7 +14,8 @@ var ConfigureFormSchema=new mongoose.Schema({
         }]
     }],
     cadence: Number,
-    accessCode: Number
+    accessCode: Number,
+    url: String
 }, 
 { typeKey: '$type' });
 
